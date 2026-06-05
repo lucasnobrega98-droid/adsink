@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>adsink — dashboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0f172a;
+  --surface:  #1e293b;
+  --border:   #334155;
+  --text:     #f1f5f9;
+  --muted:    #94a3b8;
+  --blocked:  #f87171;
+  --allowed:  #4ade80;
+  --accent:   #818cf8;
+  --error:    #fbbf24;
+  --radius:   12px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono',
+               'SF Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.logo {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--accent);
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--allowed);
+  box-shadow: 0 0 6px var(--allowed);
+  animation: pulse 2s infinite;
+}
+.dot.error { background: var(--error); box-shadow: 0 0 6px var(--error); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.sep { color: var(--border); }
+
+#refresh-indicator {
+  font-size: 14px;
+  transition: transform 0.3s;
+}
+#refresh-indicator.spinning { transform: rotate(360deg); }
+
+/* ── Main layout ── */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Metric cards ── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 600px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.card.blocked .card-value { color: var(--blocked); }
+.card.allowed .card-value { color: var(--allowed); }
+.card.accent  .card-value { color: var(--accent); }
+
+.card-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ── Two-column middle section ── */
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .row-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Panel (card with header) ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-header .count {
+  font-weight: 400;
+  font-size: 11px;
+}
+
+/* ── Domain table ── */
+.domain-table {
+  width: 100%;
+}
+
+.domain-table .row {
+  display: grid;
+  grid-template-columns: 28px 1fr 72px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.domain-table .row:last-child { border-bottom: none; }
+
+.domain-table .rank {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.domain-col {
+  min-width: 0;
+}
+
+.domain-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-wrap {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--blocked);
+  transition: width 0.4s ease;
+}
+
+.bar-fill.allowed { background: var(--allowed); }
+
+.domain-count {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ── Donut chart ── */
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chart-wrap {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  justify-content: center;
+}
+
+canvas#donut {
+  display: block;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 0 24px 24px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label { color: var(--muted); }
+.legend-val   { margin-left: auto; color: var(--text); font-weight: 600; }
+
+/* ── Bottom row ── */
+.row-2b {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 700px) {
+  .row-2b { grid-template-columns: 1fr; }
+}
+
+/* ── Recent feed ── */
+.feed {
+  padding: 8px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 20px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  animation: fadeIn 0.3s ease;
+}
+
+.feed-item:last-child { border-bottom: none; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.feed-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--blocked);
+  flex-shrink: 0;
+}
+
+.feed-domain {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">&#x1F6E1; adsink</div>
+  <div class="status-bar">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">connecting…</span>
+    <span class="sep">·</span>
+    <span id="uptime">–</span>
+    <span class="sep">·</span>
+    <span id="refresh-indicator">↻</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Metric cards ── -->
+  <div class="cards">
+    <div class="card blocked">
+      <div class="card-label">Blocked</div>
+      <div class="card-value" id="total-blocked">–</div>
+      <div class="card-sub">queries sunk</div>
+    </div>
+    <div class="card allowed">
+      <div class="card-label">Allowed</div>
+      <div class="card-value" id="total-allowed">–</div>
+      <div class="card-sub">queries forwarded</div>
+    </div>
+    <div class="card accent">
+      <div class="card-label">Block Rate</div>
+      <div class="card-value" id="block-pct">–</div>
+      <div class="card-sub">of all queries</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Avg QPS</div>
+      <div class="card-value" id="qps">–</div>
+      <div class="card-sub">queries / sec</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Blocklist</div>
+      <div class="card-value" id="blocklist-size">–</div>
+      <div class="card-sub">domains loaded</div>
+    </div>
+  </div>
+
+  <!-- ── Top blocked + donut ── -->
+  <div class="row-2">
+    <div class="panel">
+      <div class="panel-header">
+        Top Blocked Domains
+        <span class="count" id="top-blocked-count"></span>
+      </div>
+      <div class="domain-table" id="top-blocked-table">
+        <div class="empty">No data yet</div>
+      </div>
+    </div>
+
+    <div class="panel chart-panel">
+      <div class="panel-header" style="width:100%">Query Distribution</div>
+      <div class="chart-wrap">
+        <canvas id="donut" width="200" height="200"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--blocked)"></div>
+          <span class="legend-label">Blocked</span>
+          <span class="legend-val" id="legend-blocked">–</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--allowed)"></div>
+          <span class="legend-label">Allowed</span>
+          <span class="legend-val" id="legend-allowed">–</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--error)"></div>
+          <span class="legend-label">Errors</span>
+          <span class="legend-val" id="legend-errors">–</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Recent blocks + top allowed ── -->
+  <div class="row-2b">
+    <div class="panel">
+      <div class="panel-header">Recent Blocks (live)</div>
+      <div class="feed" id="recent-feed">
+        <div class="empty">No blocked queries yet</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        Top Allowed Domains
+        <span class="count" id="top-allowed-count"></span>
+      </div>
+      <div class="domain-table" id="top-allowed-table">
+        <div class="empty">No data yet</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+'use strict';
+
+// ── Utilities ──────────────────────────────────────────────
+function fmt(n) {
+  return n.toLocaleString();
+}
+
+function fmtPct(n) {
+  return n.toFixed(1) + '%';
+}
+
+function fmtQps(n) {
+  return n.toFixed(2);
+}
+
+// ── Donut chart ─────────────────────────────────────────────
+const canvas = document.getElementById('donut');
+const ctx    = canvas.getContext('2d');
+
+function arcSegment(cx, cy, r1, r2, start, end, color) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r1, start, end, false);
+  ctx.arc(cx, cy, r2, end, start, true);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function drawDonut(blocked, allowed, errors) {
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const r1 = Math.min(cx, cy) - 4;
+  const r2 = r1 * 0.58;
+  const total = blocked + allowed + errors;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (total === 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r1, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r2, 0, Math.PI * 2, true);
+    ctx.fillStyle = '#334155';
+    ctx.fill();
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('no data', cx, cy);
+    return;
+  }
+
+  const TAU     = Math.PI * 2;
+  const start   = -Math.PI / 2;
+  const bAngle  = (blocked  / total) * TAU;
+  const aAngle  = (allowed  / total) * TAU;
+  const eAngle  = (errors   / total) * TAU;
+
+  let cur = start;
+  if (blocked > 0) {
+    arcSegment(cx, cy, r1, r2, cur, cur + bAngle, '#f87171');
+    cur += bAngle;
+  }
+  if (allowed > 0) {
+    arcSegment(cx, cy, r1, r2, cur, cur + aAngle, '#4ade80');
+    cur += aAngle;
+  }
+  if (errors > 0) {
+    arcSegment(cx, cy, r1, r2, cur, cur + eAngle, '#fbbf24');
+  }
+
+  // thin gap ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, r2, 0, TAU);
+  ctx.fillStyle = '#1e293b';
+  ctx.fill();
+
+  // center text
+  const pct = (blocked / total * 100).toFixed(1);
+  ctx.fillStyle = '#f87171';
+  ctx.font = 'bold 22px ui-monospace, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(pct + '%', cx, cy - 10);
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px ui-monospace, monospace';
+  ctx.fillText('blocked', cx, cy + 12);
+}
+
+// ── Domain table ────────────────────────────────────────────
+function buildTable(rows, colorClass) {
+  if (!rows || rows.length === 0) {
+    return '<div class="empty">No data yet</div>';
+  }
+  const max = rows[0].count;
+  return rows.map((r, i) => {
+    const pct = max > 0 ? (r.count / max * 100).toFixed(1) : 0;
+    return `
+      <div class="row">
+        <span class="rank">${i + 1}</span>
+        <div class="domain-col">
+          <div class="domain-name" title="${r.domain}">${r.domain}</div>
+          <div class="bar-wrap">
+            <div class="bar-fill ${colorClass}" style="width:${pct}%"></div>
+          </div>
+        </div>
+        <span class="domain-count">${fmt(r.count)}</span>
+      </div>`;
+  }).join('');
+}
+
+// ── Recent feed ─────────────────────────────────────────────
+let prevRecent = [];
+
+function updateFeed(recent) {
+  if (!recent || recent.length === 0) return;
+
+  // Only re-render if the list changed (compare top entry)
+  if (recent[0] === prevRecent[0] && recent.length === prevRecent.length) return;
+  prevRecent = recent;
+
+  const feed = document.getElementById('recent-feed');
+  feed.innerHTML = recent.map(d => `
+    <div class="feed-item">
+      <div class="feed-dot"></div>
+      <span class="feed-domain" title="${d}">${d}</span>
+    </div>`).join('');
+}
+
+// ── Main refresh loop ────────────────────────────────────────
+const dot       = document.getElementById('status-dot');
+const statusTxt = document.getElementById('status-text');
+const indicator = document.getElementById('refresh-indicator');
+
+async function refresh() {
+  indicator.style.transition = 'transform 0.4s ease';
+  indicator.style.transform  = 'rotate(360deg)';
+  setTimeout(() => {
+    indicator.style.transition = 'none';
+    indicator.style.transform  = 'rotate(0deg)';
+  }, 450);
+
+  try {
+    const res  = await fetch('/api/stats');
+    const snap = await res.json();
+
+    // Status
+    dot.className       = 'dot';
+    statusTxt.textContent = 'running';
+
+    // Cards
+    document.getElementById('uptime').textContent         = snap.uptime;
+    document.getElementById('total-blocked').textContent  = fmt(snap.total_blocked);
+    document.getElementById('total-allowed').textContent  = fmt(snap.total_allowed);
+    document.getElementById('block-pct').textContent      = fmtPct(snap.block_pct);
+    document.getElementById('qps').textContent            = fmtQps(snap.queries_per_sec);
+    document.getElementById('blocklist-size').textContent = fmt(snap.blocklist_size);
+
+    // Legend
+    document.getElementById('legend-blocked').textContent = fmt(snap.total_blocked);
+    document.getElementById('legend-allowed').textContent = fmt(snap.total_allowed);
+    document.getElementById('legend-errors').textContent  = fmt(snap.total_errors);
+
+    // Donut
+    drawDonut(snap.total_blocked, snap.total_allowed, snap.total_errors);
+
+    // Tables
+    const tb = snap.top_blocked;
+    document.getElementById('top-blocked-table').innerHTML = buildTable(tb, '');
+    document.getElementById('top-blocked-count').textContent =
+      tb && tb.length ? `top ${tb.length}` : '';
+
+    const ta = snap.top_allowed;
+    document.getElementById('top-allowed-table').innerHTML = buildTable(ta, 'allowed');
+    document.getElementById('top-allowed-count').textContent =
+      ta && ta.length ? `top ${ta.length}` : '';
+
+    // Recent feed
+    updateFeed(snap.recent_blocked);
+
+  } catch (err) {
+    dot.className       = 'dot error';
+    statusTxt.textContent = 'unreachable';
+  }
+}
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
