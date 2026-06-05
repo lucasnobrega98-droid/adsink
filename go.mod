@@ -1,4 +1,4 @@
-module github.com/lucasnobrega98/adblocker
+module github.com/lucasnobrega98/adsink
 
 go 1.26.2
 

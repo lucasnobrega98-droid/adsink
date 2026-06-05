@@ -10,32 +10,32 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/lucasnobrega98/adblocker/internal/blocklist"
-	"github.com/lucasnobrega98/adblocker/internal/dns"
-	"github.com/lucasnobrega98/adblocker/internal/stats"
-	"github.com/lucasnobrega98/adblocker/internal/sysconfig"
-	"github.com/lucasnobrega98/adblocker/internal/web"
+	"github.com/lucasnobrega98/adsink/internal/blocklist"
+	"github.com/lucasnobrega98/adsink/internal/dns"
+	"github.com/lucasnobrega98/adsink/internal/stats"
+	"github.com/lucasnobrega98/adsink/internal/sysconfig"
+	"github.com/lucasnobrega98/adsink/internal/web"
 )
 
-const defaultDataDir = "/var/lib/adblocker"
+const defaultDataDir = "/var/lib/adsink"
 const defaultListen  = "127.0.0.1:53"
 const defaultUpstream = "8.8.8.8:53"
 const defaultWebAddr  = "127.0.0.1:8080"
 
 func dataDir() string {
-	if d := os.Getenv("ADBLOCKER_DATA"); d != "" {
+	if d := os.Getenv("adsink_DATA"); d != "" {
 		return d
 	}
 	if os.Getuid() != 0 {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".local", "share", "adblocker")
+		return filepath.Join(home, ".local", "share", "adsink")
 	}
 	return defaultDataDir
 }
 
 func main() {
 	log.SetFlags(0)
-	log.SetPrefix("[adblocker] ")
+	log.SetPrefix("[adsink] ")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -64,7 +64,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`Usage: adblocker <command> [flags]
+	fmt.Println(`Usage: adsink <command> [flags]
 
 Commands:
   run         Start the DNS server
@@ -79,13 +79,13 @@ Run flags:
   -upstream   Upstream DNS resolver       (default: 8.8.8.8:53)
   -web        Web dashboard address       (default: 127.0.0.1:8080)
   -no-web     Disable the web dashboard
-  -data       Data directory              (default: /var/lib/adblocker)
+  -data       Data directory              (default: /var/lib/adsink)
   -ttl        Blocklist cache TTL hours   (default: 24)
 
 Whitelist sub-commands:
-  adblocker whitelist add <domain>
-  adblocker whitelist remove <domain>
-  adblocker whitelist list`)
+  adsink whitelist add <domain>
+  adsink whitelist remove <domain>
+  adsink whitelist list`)
 }
 
 func cmdRun(args []string) {
@@ -150,14 +150,14 @@ func cmdUpdate(args []string) {
 
 func cmdWhitelist(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: adblocker whitelist <add|remove|list> [domain]")
+		fmt.Fprintln(os.Stderr, "Usage: adsink whitelist <add|remove|list> [domain]")
 		os.Exit(1)
 	}
 	bl := blocklist.New(dataDir(), nil, 0)
 	switch args[0] {
 	case "add":
 		if len(args) < 2 {
-			log.Fatal("Usage: adblocker whitelist add <domain>")
+			log.Fatal("Usage: adsink whitelist add <domain>")
 		}
 		if err := bl.WhitelistAdd(args[1]); err != nil {
 			log.Fatalf("whitelist add: %v", err)
@@ -165,7 +165,7 @@ func cmdWhitelist(args []string) {
 		fmt.Printf("Whitelisted: %s\n", args[1])
 	case "remove":
 		if len(args) < 2 {
-			log.Fatal("Usage: adblocker whitelist remove <domain>")
+			log.Fatal("Usage: adsink whitelist remove <domain>")
 		}
 		if err := bl.WhitelistRemove(args[1]); err != nil {
 			log.Fatalf("whitelist remove: %v", err)

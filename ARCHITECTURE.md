@@ -1,8 +1,8 @@
-# adblocker — Architecture & Design
+# adsink — Architecture & Design
 
 ## Overview
 
-`adblocker` is a local DNS sinkhole. Every DNS query from any application on the machine passes through it. Queries for known ad/tracker domains are answered with `0.0.0.0` (IPv4) or `::` (IPv6), so the connection is immediately refused by the caller's TCP stack. Everything else is forwarded to a real upstream resolver (default: `8.8.8.8:53`).
+`adsink` is a local DNS sinkhole. Every DNS query from any application on the machine passes through it. Queries for known ad/tracker domains are answered with `0.0.0.0` (IPv4) or `::` (IPv6), so the connection is immediately refused by the caller's TCP stack. Everything else is forwarded to a real upstream resolver (default: `8.8.8.8:53`).
 
 A built-in HTTP server serves a live statistics dashboard at `127.0.0.1:8080`.
 
@@ -26,7 +26,7 @@ No proxy. No TLS inspection. No kernel modules. Just DNS.
 │                            │  DNS query (UDP/TCP :53)                │
 │                            ▼                                         │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                     adblocker process                        │   │
+│  │                     adsink process                        │   │
 │  │                                                              │   │
 │  │  ┌──────────────┐  ┌─────────────┐  ┌──────────────────┐   │   │
 │  │  │  dns.Server  │  │  Blocklist  │  │  stats.Recorder  │   │   │
@@ -68,9 +68,9 @@ No proxy. No TLS inspection. No kernel modules. Just DNS.
 ## Package structure
 
 ```
-github.com/lucasnobrega98/adblocker
+github.com/lucasnobrega98/adsink
 │
-├── cmd/adblocker/
+├── cmd/adsink/
 │   └── main.go              CLI dispatcher + startup orchestration
 │
 └── internal/
@@ -90,7 +90,7 @@ github.com/lucasnobrega98/adblocker
 ### Dependency graph
 
 ```
-cmd/adblocker
+cmd/adsink
     ├── internal/blocklist   (no internal deps)
     ├── internal/stats       (no internal deps)
     ├── internal/dns         (depends on blocklist via Checker interface)
@@ -308,16 +308,16 @@ Point the OS DNS resolver at `127.0.0.1` and undo it cleanly.
 ```
 Apply()
   └─ isSystemdResolved()?
-       ├─ YES → write /etc/systemd/resolved.conf.d/adblocker.conf
+       ├─ YES → write /etc/systemd/resolved.conf.d/adsink.conf
        │         [Resolve]
        │         DNS=127.0.0.1
        │         DNSStubListener=no    ← releases port 53 from resolved
        │
        └─ NO  → prepend "nameserver 127.0.0.1" to /etc/resolv.conf
-                 (backup saved to resolv.conf.adblocker.bak first)
+                 (backup saved to resolv.conf.adsink.bak first)
 ```
 
-`DNSStubListener=no` is critical on systemd-resolved systems: resolved normally squats on `127.0.0.53:53`; this line releases port 53 so adblocker can bind it.
+`DNSStubListener=no` is critical on systemd-resolved systems: resolved normally squats on `127.0.0.53:53`; this line releases port 53 so adsink can bind it.
 
 ### Reversal
 
@@ -325,16 +325,16 @@ Apply()
 Remove()
   ├─ systemd-resolved → delete the drop-in file, restart resolved
   └─ resolv.conf      → restore from .bak if present, otherwise
-                        strip the "# adblocker / nameserver" lines
+                        strip the "# adsink / nameserver" lines
 ```
 
 ---
 
-## Startup sequence (`adblocker run`)
+## Startup sequence (`adsink run`)
 
 ```mermaid
 sequenceDiagram
-    participant CLI as cmd/adblocker
+    participant CLI as cmd/adsink
     participant BL as blocklist.Blocklist
     participant FS as Filesystem
     participant Net as HTTP (upstream sources)
@@ -467,7 +467,7 @@ sequenceDiagram
 ## Data directory layout
 
 ```
-/var/lib/adblocker/          (root) or ~/.local/share/adblocker/ (user)
+/var/lib/adsink/          (root) or ~/.local/share/adsink/ (user)
 ├── blocklist.cache           flat list of blocked domains, one per line
 └── whitelist.txt             user-managed exceptions, one per line
 ```
@@ -490,9 +490,9 @@ The cache is a plain text file so it's inspectable with `grep` and patchable man
          ▼                    ▼
 /etc/systemd/          /etc/resolv.conf
 resolved.conf.d/       prepend:
-adblocker.conf:          nameserver 127.0.0.1
+adsink.conf:          nameserver 127.0.0.1
   [Resolve]             (backup saved as
-  DNS=127.0.0.1          resolv.conf.adblocker.bak)
+  DNS=127.0.0.1          resolv.conf.adsink.bak)
   DNSStubListener=no
 ```
 

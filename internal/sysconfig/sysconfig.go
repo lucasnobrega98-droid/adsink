@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const resolvedConf = "/etc/systemd/resolved.conf.d/adblocker.conf"
+const resolvedConf = "/etc/systemd/resolved.conf.d/adsink.conf"
 const resolvConf = "/etc/resolv.conf"
 
 // Apply points the system DNS at addr (e.g. "127.0.0.1") using systemd-resolved if
@@ -50,18 +50,18 @@ func applyResolvConf(addr string) error {
 	if err != nil {
 		existing = []byte{}
 	}
-	if strings.Contains(string(existing), "# adblocker") {
+	if strings.Contains(string(existing), "# adsink") {
 		return nil // already applied
 	}
-	backup := resolvConf + ".adblocker.bak"
+	backup := resolvConf + ".adsink.bak"
 	_ = os.WriteFile(backup, existing, 0644)
 
-	newContent := fmt.Sprintf("# adblocker\nnameserver %s\n%s", addr, string(existing))
+	newContent := fmt.Sprintf("# adsink\nnameserver %s\n%s", addr, string(existing))
 	return os.WriteFile(resolvConf, []byte(newContent), 0644)
 }
 
 func removeFromResolvConf() error {
-	backup := resolvConf + ".adblocker.bak"
+	backup := resolvConf + ".adsink.bak"
 	if _, err := os.Stat(backup); err == nil {
 		return os.Rename(backup, resolvConf)
 	}
@@ -73,7 +73,7 @@ func removeFromResolvConf() error {
 	var lines []string
 	skip := false
 	for _, line := range strings.Split(string(content), "\n") {
-		if line == "# adblocker" {
+		if line == "# adsink" {
 			skip = true
 			continue
 		}

@@ -3,12 +3,12 @@ Description=Local DNS-based ad blocker
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/adblocker run
+ExecStart=/usr/local/bin/adsink run
 Restart=on-failure
 RestartSec=5
 
 # Data directory for blocklists
-Environment=ADBLOCKER_DATA=/var/lib/adblocker
+Environment=adsink_DATA=/var/lib/adsink
 
 # Allow binding port 53 without full root
 AmbientCapabilities=CAP_NET_BIND_SERVICE
@@ -18,7 +18,7 @@ NoNewPrivileges=true
 # Minimal sandbox
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/adblocker
+ReadWritePaths=/var/lib/adsink
 PrivateTmp=true
 
 [Install]

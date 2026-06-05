@@ -257,7 +257,7 @@ func fetchAndParse(client *http.Client, url string) (map[string]struct{}, error)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "adblocker/1.0")
+	req.Header.Set("User-Agent", "adsink/1.0")
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

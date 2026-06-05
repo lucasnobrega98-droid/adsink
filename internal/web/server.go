@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/lucasnobrega98/adblocker/internal/stats"
+	"github.com/lucasnobrega98/adsink/internal/stats"
 )
 
 //go:embed dashboard.html
