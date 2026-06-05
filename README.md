@@ -307,3 +307,6 @@ The cache file is at `/var/lib/adblocker/blocklist.cache`. You can inspect or `g
 ```bash
 grep "doubleclick" /var/lib/adblocker/blocklist.cache
 ```
+=======
+# adsink
+System-wide Ad sink for linux
